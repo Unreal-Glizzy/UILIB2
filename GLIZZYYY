@@ -1,58 +1,39 @@
---[[ 
-    Unreal_Glizzy UI Library 
-    Mobile-ready | Dark Theme | Responsive | Touch Support
-    Modified from Vision UI v2
-]]
+-- Vision UI Lib v2 (Mobile Compatible)
+-- Original by Loco_CTO, Sius, BruhOOFBoi | Touch compatibility and resizing added
 
--- Services
+local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local TextService = game:GetService("TextService")
-local HttpService = game:GetService("HttpService")
-local Debris = game:GetService("Debris")
-local SoundService = game:GetService("SoundService")
 
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
--- Global cleanup
-pcall(function()
-	getgenv().VisionUILibrary:Destroy()
-end)
+local ThemeColor = {
+	Main = Color3.fromRGB(32, 32, 32),
+	Secondary = Color3.fromRGB(24, 24, 24),
+	Tertiary = Color3.fromRGB(18, 18, 18),
+	Text = Color3.fromRGB(255, 255, 255),
+	PlaceholderText = Color3.fromRGB(175, 175, 175),
+	Textbox = Color3.fromRGB(45, 45, 45),
+	NavBar = Color3.fromRGB(35, 35, 35),
+	Theme = Color3.fromRGB(132, 65, 232),
+}
 
--- Library object
 local Library = {
+	Loaded = false,
 	MainFrameHover = false,
 	Sliding = false,
-	Loaded = false,
-	CurrentTheme = {},
+	CurrentTheme = ThemeColor,
 }
+
 getgenv().VisionUILibrary = Library
 
--- UI Configuration
 local LibSettings = {
 	DragSpeed = 0.07,
 	SoundVolume = 0.5,
-	HoverSound = "rbxassetid://10066931761",
-	ClickSound = "rbxassetid://6895079853",
-	PopupSound = "rbxassetid://225320558",
 }
 
--- Theme: Ultra dark
-local ThemeColor = {
-	Main = Color3.fromRGB(10, 10, 10),
-	Secondary = Color3.fromRGB(15, 15, 15),
-	Tertiary = Color3.fromRGB(20, 20, 20),
-	Text = Color3.fromRGB(255, 255, 255),
-	PlaceholderText = Color3.fromRGB(120, 120, 120),
-	Textbox = Color3.fromRGB(25, 25, 25),
-	NavBar = Color3.fromRGB(18, 18, 18),
-	Theme = Color3.fromRGB(95, 50, 180),
-}
-
--- Utility: Apply defaults
 function Library:PlaceDefaults(defaults, options)
 	defaults = defaults or {}
 	options = options or {}
@@ -62,73 +43,44 @@ function Library:PlaceDefaults(defaults, options)
 	return defaults
 end
 
--- Tween helper
 function Library:Tween(object, options, callback)
-	local tweenInfo = TweenInfo.new(
+	local info = TweenInfo.new(
 		options.Length or 0.3,
 		options.Style or Enum.EasingStyle.Quad,
 		options.Direction or Enum.EasingDirection.Out
 	)
-	local tween = TweenService:Create(object, tweenInfo, options.Goal)
+	local tween = TweenService:Create(object, info, options.Goal)
 	tween:Play()
 	if callback then
 		tween.Completed:Connect(callback)
 	end
 	return tween
 end
-
--- Play UI sounds
-function Library:PlaySound(soundId)
-	local s = Instance.new("Sound")
-	s.SoundId = soundId
-	s.Parent = SoundService
-	s.Volume = LibSettings.SoundVolume
-	s.PlaybackSpeed = math.random(98, 102) / 100
-	s:Play()
-	s.Ended:Connect(function()
-		s:Destroy()
-	end)
-end
-
--- Set the theme colors
-function Library:SetTheme(theme)
-	theme = self:PlaceDefaults(ThemeColor, theme)
-	self.CurrentTheme = theme
-end
-
--- Create the UI
 function Library:Create(options)
-	options = self:PlaceDefaults({
-		Name = "Unreal_Glizzy UI",
-		Footer = "Created by Unreal_Glizzy",
+	options = Library:PlaceDefaults({
+		Name = "Vision UI Lib v2",
+		Footer = "By Loco_CTO, Sius and BruhOOFBoi",
 		ToggleKey = Enum.KeyCode.RightShift,
 	}, options)
 
 	local Gui = {}
 	local ScreenGui = Instance.new("ScreenGui")
-	ScreenGui.Name = "Unreal_Glizzy_UI"
-	ScreenGui.ResetOnSpawn = false
-	ScreenGui.IgnoreGuiInset = false
-	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	ScreenGui.Name = "VisionUILib"
 	ScreenGui.Parent = game:GetService("CoreGui")
+	ScreenGui.ResetOnSpawn = false
+	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	local MainFrame = Instance.new("Frame")
 	MainFrame.Name = "MainFrame"
-	MainFrame.Size = UDim2.new(0, 350, 0, 400)
+	MainFrame.Size = UDim2.new(0, 400, 0, 420)
+	MainFrame.Position = UDim2.new(0.5, -200, 0.5, -210)
 	MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-	MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 	MainFrame.BackgroundColor3 = ThemeColor.Main
 	MainFrame.BorderSizePixel = 0
 	MainFrame.Parent = ScreenGui
 
-	local UICorner = Instance.new("UICorner")
-	UICorner.CornerRadius = UDim.new(0, 6)
-	UICorner.Parent = MainFrame
-
-	-- Add UIScale for auto-resizing
-	local UIScale = Instance.new("UIScale")
+	local UIScale = Instance.new("UIScale", MainFrame)
 	UIScale.Scale = 1
-	UIScale.Parent = MainFrame
 
 	local Title = Instance.new("TextLabel")
 	Title.Size = UDim2.new(1, 0, 0, 30)
@@ -140,16 +92,8 @@ function Library:Create(options)
 	Title.TextSize = 18
 	Title.Parent = MainFrame
 
-	-- Make draggable (touch + mouse)
-	local dragging, dragInput, dragStart, startPos
-
-	local function update(input)
-		local delta = input.Position - dragStart
-		MainFrame.Position = UDim2.new(
-			startPos.X.Scale, startPos.X.Offset + delta.X,
-			startPos.Y.Scale, startPos.Y.Offset + delta.Y
-		)
-	end
+	local dragging = false
+	local dragInput, dragStart, startPos
 
 	MainFrame.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -173,11 +117,11 @@ function Library:Create(options)
 
 	RunService.Heartbeat:Connect(function()
 		if dragging and dragInput then
-			update(dragInput)
+			local delta = dragInput.Position - dragStart
+			MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 		end
 	end)
 
-	-- Store references
 	Gui.ScreenGui = ScreenGui
 	Gui.MainFrame = MainFrame
 	Gui.Title = Title
@@ -185,187 +129,173 @@ function Library:Create(options)
 	return Gui
 end
 
--- Add section to the UI
-function Library:AddSection(gui, sectionName)
-	local container = Instance.new("Frame")
-	container.Name = sectionName or "Section"
-	container.Size = UDim2.new(1, -20, 0, 0)
-	container.BackgroundTransparency = 1
-	container.Position = UDim2.new(0, 10, 0, 40)
-	container.AutomaticSize = Enum.AutomaticSize.Y
-	container.Parent = gui.MainFrame
+function Library:AddSection(gui, title)
+	local section = Instance.new("Frame")
+	section.Size = UDim2.new(1, -20, 0, 0)
+	section.Position = UDim2.new(0, 10, 0, 40)
+	section.BackgroundTransparency = 1
+	section.AutomaticSize = Enum.AutomaticSize.Y
+	section.Parent = gui.MainFrame
 
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 6)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = container
+	layout.Parent = section
 
-	return container
+	return section
 end
 
--- Add a button
 function Library:AddButton(parent, text, callback)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, 30)
-	btn.BackgroundColor3 = ThemeColor.Tertiary
-	btn.Text = text
-	btn.TextColor3 = ThemeColor.Text
-	btn.Font = Enum.Font.Gotham
-	btn.TextSize = 14
-	btn.AutoButtonColor = true
-	btn.Parent = parent
+	local button = Instance.new("TextButton")
+	button.Size = UDim2.new(1, 0, 0, 30)
+	button.BackgroundColor3 = ThemeColor.Tertiary
+	button.Text = text
+	button.TextColor3 = ThemeColor.Text
+	button.Font = Enum.Font.Gotham
+	button.TextSize = 14
+	button.AutoButtonColor = true
+	button.Parent = parent
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = btn
+	corner.Parent = button
 
-	btn.MouseButton1Click:Connect(function()
-		Library:PlaySound(LibSettings.ClickSound)
-		if callback then callback() end
+	button.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			if callback then callback() end
+		end
 	end)
 end
 
--- Add a toggle
 function Library:AddToggle(parent, text, default, callback)
-	local toggle = Instance.new("Frame")
-	toggle.Size = UDim2.new(1, 0, 0, 30)
-	toggle.BackgroundTransparency = 1
-	toggle.Parent = parent
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, 0, 0, 30)
+	frame.BackgroundTransparency = 1
+	frame.Parent = parent
 
 	local label = Instance.new("TextLabel")
 	label.Text = text
 	label.Size = UDim2.new(1, -40, 1, 0)
-	label.Position = UDim2.new(0, 0, 0, 0)
 	label.BackgroundTransparency = 1
 	label.TextColor3 = ThemeColor.Text
 	label.Font = Enum.Font.Gotham
 	label.TextSize = 14
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = toggle
+	label.Parent = frame
 
-	local box = Instance.new("TextButton")
-	box.Size = UDim2.new(0, 28, 0, 28)
-	box.Position = UDim2.new(1, -28, 0.5, -14)
-	box.BackgroundColor3 = ThemeColor.Textbox
-	box.Text = ""
-	box.Parent = toggle
+	local toggleBtn = Instance.new("TextButton")
+	toggleBtn.Size = UDim2.new(0, 28, 0, 28)
+	toggleBtn.Position = UDim2.new(1, -28, 0.5, -14)
+	toggleBtn.BackgroundColor3 = ThemeColor.Textbox
+	toggleBtn.Text = ""
+	toggleBtn.Parent = frame
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = box
+	corner.Parent = toggleBtn
 
-	local enabled = default or false
+	local toggled = default or false
 
-	local function refresh()
-		box.BackgroundColor3 = enabled and ThemeColor.Theme or ThemeColor.Textbox
+	local function updateColor()
+		toggleBtn.BackgroundColor3 = toggled and ThemeColor.Theme or ThemeColor.Textbox
 	end
 
-	box.MouseButton1Click:Connect(function()
-		enabled = not enabled
-		refresh()
-		Library:PlaySound(LibSettings.ClickSound)
-		if callback then callback(enabled) end
+	toggleBtn.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			toggled = not toggled
+			updateColor()
+			if callback then callback(toggled) end
+		end
 	end)
 
-	refresh()
+	updateColor()
 end
 
--- Add a slider
 function Library:AddSlider(parent, text, min, max, default, callback)
-	local container = Instance.new("Frame")
-	container.Size = UDim2.new(1, 0, 0, 40)
-	container.BackgroundTransparency = 1
-	container.Parent = parent
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, 0, 0, 40)
+	frame.BackgroundTransparency = 1
+	frame.Parent = parent
 
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 0, 20)
-	label.Position = UDim2.new(0, 0, 0, 0)
 	label.Text = text .. ": " .. tostring(default)
+	label.BackgroundTransparency = 1
 	label.TextColor3 = ThemeColor.Text
 	label.Font = Enum.Font.Gotham
 	label.TextSize = 13
-	label.BackgroundTransparency = 1
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = container
+	label.Parent = frame
 
-	local slider = Instance.new("Frame")
-	slider.Size = UDim2.new(1, 0, 0, 14)
-	slider.Position = UDim2.new(0, 0, 1, -14)
-	slider.BackgroundColor3 = ThemeColor.Textbox
-	slider.Parent = container
+	local sliderBar = Instance.new("Frame")
+	sliderBar.Size = UDim2.new(1, 0, 0, 14)
+	sliderBar.Position = UDim2.new(0, 0, 1, -14)
+	sliderBar.BackgroundColor3 = ThemeColor.Textbox
+	sliderBar.Parent = frame
 
 	local fill = Instance.new("Frame")
 	fill.BackgroundColor3 = ThemeColor.Theme
 	fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-	fill.Parent = slider
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = slider
+	fill.Parent = sliderBar
 
 	local dragging = false
 
-	local function setFromPosition(x)
-		local scale = math.clamp((x - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
-		local value = math.floor((min + (max - min) * scale) + 0.5)
-		fill.Size = UDim2.new(scale, 0, 1, 0)
+	local function setFromPos(x)
+		local percent = math.clamp((x - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 0, 1)
+		local value = math.floor((min + (max - min) * percent) + 0.5)
+		fill.Size = UDim2.new(percent, 0, 1, 0)
 		label.Text = text .. ": " .. tostring(value)
 		if callback then callback(value) end
 	end
 
-	slider.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+	sliderBar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
 			dragging = true
-			setFromPosition(input.Position.X)
+			setFromPos(input.Position.X)
 		end
 	end)
 
-	slider.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+	sliderBar.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
 			dragging = false
 		end
 	end)
 
 	UserInputService.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			setFromPosition(input.Position.X)
+		if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+			setFromPos(input.Position.X)
 		end
 	end)
 end
 
--- Clean up the UI
-function Library:Destroy()
-	if getgenv().VisionUILibrary then
-		getgenv().VisionUILibrary = nil
-	end
+function Library:AddTextbox(parent, text, placeholder, callback)
+	local box = Instance.new("TextBox")
+	box.Size = UDim2.new(1, 0, 0, 30)
+	box.PlaceholderText = placeholder or "Enter text..."
+	box.Text = ""
+	box.BackgroundColor3 = ThemeColor.Textbox
+	box.TextColor3 = ThemeColor.Text
+	box.TextSize = 13
+	box.Font = Enum.Font.Gotham
+	box.ClearTextOnFocus = false
+	box.Parent = parent
 
-	for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
-		if gui.Name == "Unreal_Glizzy_UI" then
-			gui:Destroy()
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 0, 15)
+	label.Text = text
+	label.BackgroundTransparency = 1
+	label.TextColor3 = ThemeColor.Text
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 12
+	label.Parent = parent
+
+	box.FocusLost:Connect(function()
+		if callback then
+			callback(box.Text)
 		end
-	end
+	end)
 end
 
--- Example usage
---[[
-local UI = Library:Create({
-    Name = "Unreal_Glizzy UI",
-    Footer = "Made by Unreal_Glizzy"
-})
-
-local MainSection = Library:AddSection(UI, "Main Section")
-
-Library:AddButton(MainSection, "Click Me", function()
-	print("Button clicked!")
-end)
-
-Library:AddToggle(MainSection, "Enable Something", false, function(state)
-	print("Toggle is now:", state)
-end)
-
-Library:AddSlider(MainSection, "Volume", 0, 100, 50, function(value)
-	print("Slider value:", value)
-end)
-]]
-
 return Library
+
+
